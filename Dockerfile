@@ -9,9 +9,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY models.py tasks.py graders.py env.py inference.py openenv.yaml ./
+COPY . .
 
 USER openenv
 
-ENTRYPOINT ["python", "inference.py"]
-CMD ["--output", "/app/results.json"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
