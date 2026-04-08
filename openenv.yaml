@@ -1,0 +1,103 @@
+name: ai_incident_response
+version: "1.0.0"
+description: >
+  AI Incident Response & IT Ops Automation — an OpenEnv environment that
+  simulates real-world IT incident handling workflows including incident
+  classification, root-cause diagnosis, remediation selection, escalation
+  logic, and resolution verification.
+
+author: OpenEnv Team
+license: MIT
+
+environment:
+  entry_point: env:IncidentResponseEnv
+  api_version: "1.0"
+  observation_type: Observation
+  action_type: Action
+  reward_type: StepReward
+
+tasks:
+  - id: task_easy_cpu_high
+    difficulty: easy
+    name: "High CPU Usage — Web Server"
+    description: >
+      nginx web server CPU at 94%. Classify the incident,
+      diagnose the runaway worker, and restart the service.
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    incident_types: [cpu_high]
+    required_actions: [classify, diagnose, restart_service]
+
+  - id: task_medium_disk_full
+    difficulty: medium
+    name: "Disk Full — Application Logs"
+    description: >
+      Application server disk at 98% due to unrotated log files.
+      Classify, diagnose log accumulation, and clear logs to recover space.
+    max_steps: 10
+    score_range: [0.0, 1.0]
+    incident_types: [disk_full]
+    required_actions: [classify, diagnose, clear_logs]
+
+  - id: task_hard_service_crash
+    difficulty: hard
+    name: "Cascading Service Crash — Payment Gateway"
+    description: >
+      Payment gateway in CrashLoopBackOff due to DB connection pool exhaustion.
+      Classify, diagnose, restart service, AND escalate to the database team.
+    max_steps: 12
+    score_range: [0.0, 1.0]
+    incident_types: [service_crash]
+    required_actions: [classify, diagnose, restart_service, escalate]
+
+action_space:
+  - classify:        "Classify the incident type (cpu_high | disk_full | service_crash)"
+  - diagnose:        "Diagnose the root cause with a root_cause string"
+  - restart_service: "Restart the affected service"
+  - clear_logs:      "Clear/rotate application log files to free disk space"
+  - scale_up:        "Scale up compute resources (replicas / CPU allocation)"
+  - escalate:        "Escalate to senior team or on-call engineer"
+
+observation_space:
+  incident_id:          "Unique incident identifier"
+  phase:                "Current workflow phase (detection → classification → diagnosis → remediation → verification → closed)"
+  step_number:          "Current step within the episode"
+  max_steps:            "Maximum steps allowed"
+  metrics:              "SystemMetrics (cpu, disk, memory, active/crashed services, log size)"
+  recent_alerts:        "Last 5 alert log entries"
+  incident_description: "Human-readable incident summary"
+  classified:           "Whether classify action has been submitted"
+  classification_result: "Value submitted during classify"
+  diagnosed:            "Whether diagnose action has been submitted"
+  diagnosis_result:     "Value submitted during diagnose"
+  remediation_applied:  "Whether a remediation action has been applied"
+  remediation_action:   "Remediation action name that was applied"
+  resolved:             "Whether the incident is fully resolved"
+  escalated:            "Whether escalation was triggered"
+  allowed_actions:      "List of valid actions for the current phase"
+  status_message:       "Human-readable feedback from the last step"
+
+reward_shaping:
+  classification_reward: "Up to +0.20 for correct incident type classification"
+  diagnosis_reward:      "Up to +0.25 for correct root cause (partial credit for near-matches)"
+  remediation_reward:    "Up to +0.30 for correct remediation action"
+  resolution_reward:     "Up to +0.25 for full incident resolution"
+  escalation_reward:     "Up to +0.15 for correct escalation decision (hard task only)"
+  wrong_action_penalty:  "-0.10 for actions invalid in the current phase"
+  step_penalty:          "-0.02 to -0.05 per step (encourages efficiency)"
+
+baseline:
+  script: inference.py
+  model: gpt-4o
+  api_key_env: OPENAI_API_KEY
+  reproducibility:
+    temperature: 0.0
+    seed: 42
+
+dependencies:
+  python: ">=3.10"
+  requirements_file: requirements.txt
+
+docker:
+  dockerfile: Dockerfile
+  base_image: python:3.11-slim
